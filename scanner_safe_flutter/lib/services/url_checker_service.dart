@@ -19,23 +19,19 @@ class UrlCheckerService {
     } else if (Platform.isAndroid) {
       // For Android - try all possible connections in order
       urls.add('http://10.0.2.2:8000');        // Android emulator special IP
-      urls.add('http://192.168.1.89:8000');    // Specific computer IP 
       
-      // Common subnet IPs to try (192.168.1.x)
-      for (int i = 1; i <= 10; i++) {
-        urls.add('http://192.168.1.$i:8000');
-      }
+      // Add the actual IP addresses of the server from the current network config
+      urls.add('http://192.168.73.32:8000');   // Primary IP from network test
+      urls.add('http://172.26.16.1:8000');     // Secondary IP
+      urls.add('http://192.168.56.1:8000');    // Third IP
       
-      // Alternative common subnet (192.168.0.x)
-      for (int i = 1; i <= 10; i++) {
-        urls.add('http://192.168.0.$i:8000');
-      }
-      
-      urls.add('http://localhost:8000');      // Local test
-      urls.add('http://127.0.0.1:8000');      // Explicit loopback
+      // Try localhost/loopback addresses
+      urls.add('http://localhost:8000');
+      urls.add('http://127.0.0.1:8000');
     } else {
       // Default fallback for iOS or other platforms
       urls.add('http://localhost:8000');
+      urls.add('http://192.168.73.32:8000');   // Also add for iOS
     }
     
     return urls;
@@ -68,7 +64,7 @@ class UrlCheckerService {
           'Accept': 'application/json',
         },
         body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
       
       print('Response status code: ${response.statusCode}');
       print('Response headers: ${response.headers}');
@@ -86,6 +82,7 @@ class UrlCheckerService {
       } else {
         print('API error: Status ${response.statusCode}');
         // Fallback to local check if server request fails
+        
         return _performLocalFallbackCheck(url);
       }
     } catch (e) {
@@ -160,7 +157,7 @@ class UrlCheckerService {
       final response = await http.get(
         Uri.parse('$serverUrl/api/ping'),
         headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 2));
+      ).timeout(const Duration(seconds: 5));
       
       print('Server $serverUrl responded with status: ${response.statusCode}');
       return response.statusCode == 200;
@@ -171,7 +168,10 @@ class UrlCheckerService {
   }
 
   UrlSafetyResult _performLocalFallbackCheck(String url) {
-    print('Performing local fallback check for: $url');
+    print('==== OFFLINE MODE: SERVER UNAVAILABLE ====');
+    print('Running local fallback safety check for: $url');
+    print('WARNING: This is a simplified offline analysis with lower accuracy');
+    print('Analyzing URL structure and common malicious patterns...');
     
     // Simple checks for potentially unsafe patterns
     final lowercaseUrl = url.toLowerCase();
@@ -196,46 +196,57 @@ class UrlCheckerService {
       final suspiciousTlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.info', '.online'];
       if (suspiciousTlds.any((tld) => uri.host.toLowerCase().endsWith(tld))) {
         isSuspiciousStructure = true;
+        print('OFFLINE CHECK: Suspicious TLD detected: ${uri.host.substring(uri.host.lastIndexOf("."))}');
       }
       
       // Check for IP address instead of domain name
       final ipPattern = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
       if (ipPattern.hasMatch(uri.host)) {
         isSuspiciousStructure = true;
+        print('OFFLINE CHECK: IP address used instead of domain name: ${uri.host}');
       }
       
       // Check for excessive subdomains
       if (uri.host.split('.').length > 3) {
         isSuspiciousStructure = true;
+        print('OFFLINE CHECK: Excessive subdomains detected: ${uri.host}');
       }
       
       // Detect unusual port numbers
       if (uri.port != 0 && uri.port != 80 && uri.port != 443) {
         isSuspiciousStructure = true;
+        print('OFFLINE CHECK: Unusual port number detected: ${uri.port}');
       }
       
       // Check for very long URLs
       if (url.length > 100) {
         isSuspiciousStructure = true;
+        print('OFFLINE CHECK: Unusually long URL detected (${url.length} characters)');
       }
     } catch (e) {
-      print('Error parsing URL in fallback check: $e');
+      print('OFFLINE CHECK: Error parsing URL: $e');
       // If we can't parse the URL at all, consider it suspicious
       isSuspiciousStructure = true;
     }
     
     // Count matches of suspicious patterns
     int patternMatches = 0;
+    List<String> matchedPatterns = [];
     for (final pattern in suspiciousPatterns) {
       if (lowercaseUrl.contains(pattern)) {
         patternMatches++;
+        matchedPatterns.add(pattern);
       }
+    }
+    
+    if (patternMatches > 0) {
+      print('OFFLINE CHECK: Found $patternMatches suspicious keywords: ${matchedPatterns.join(", ")}');
     }
     
     // Determine safety based on combined factors
     bool isSafe = true;
     double confidence = 0.5;  // Start with neutral confidence
-    String details = "Fallback check result: ";
+    String details = "OFFLINE ANALYSIS RESULT: ";
     
     if (isSuspiciousStructure) {
       confidence -= 0.2;
@@ -251,11 +262,13 @@ class UrlCheckerService {
       isSafe = false;
       details += "Considered potentially unsafe.";
     } else {
-      details += "No obvious threats detected, but this is a less accurate fallback check.";
+      details += "No obvious threats detected, but this is a less accurate offline check.";
     }
     
-    print('Fallback safety result: $isSafe (confidence: $confidence)');
-    print('Fallback details: $details');
+    print('==== OFFLINE ANALYSIS COMPLETE ====');
+    print('Safety result: ${isSafe ? "LIKELY SAFE" : "POTENTIALLY UNSAFE"} (confidence: ${(confidence * 100).toStringAsFixed(1)}%)');
+    print('Explanation: $details');
+    print('NOTE: For more accurate results, please connect to the server when possible');
     
     return UrlSafetyResult(
       url: url,
@@ -263,6 +276,7 @@ class UrlCheckerService {
       confidence: confidence,
       details: details,
       timestamp: DateTime.now(),
+      isOfflineResult: true,  // Add a flag indicating this was an offline result
     );
   }
 }
@@ -278,4 +292,64 @@ class _ServerCheckResult {
     required this.isReachable,
     required this.responseTime,
   });
+}
+
+// Extension method for manually testing server connection
+extension UrlCheckerServiceTestExtension on UrlCheckerService {
+  // Test connection to all possible servers
+  Future<Map<String, dynamic>> testServerConnection() async {
+    print('Testing connection to all possible servers...');
+    
+    final results = <String, dynamic>{};
+    results['timestamp'] = DateTime.now().toString();
+    
+    // Try to discover a working server
+    final serverUrl = await _discoverServer();
+    results['found_working_server'] = serverUrl != null;
+    results['working_server'] = serverUrl;
+    
+    // Test ping to all servers
+    final serverStatuses = <Map<String, dynamic>>[];
+    for (final url in UrlCheckerService.serverUrls) {
+      final startTime = DateTime.now().millisecondsSinceEpoch;
+      final isReachable = await _isServerReachable(url);
+      final endTime = DateTime.now().millisecondsSinceEpoch;
+      
+      serverStatuses.add({
+        'url': url,
+        'is_reachable': isReachable,
+        'response_time_ms': endTime - startTime,
+      });
+    }
+    
+    results['server_statuses'] = serverStatuses;
+    
+    // Test health endpoint on working server
+    if (serverUrl != null) {
+      try {
+        final healthUrl = '$serverUrl/api/health';
+        print('Testing health endpoint: $healthUrl');
+        
+        final response = await http.get(
+          Uri.parse(healthUrl),
+          headers: {'Accept': 'application/json'},
+        ).timeout(const Duration(seconds: 5));
+        
+        results['health_check_status'] = response.statusCode;
+        if (response.statusCode == 200) {
+          try {
+            results['health_check_body'] = jsonDecode(response.body);
+          } catch (e) {
+            results['health_check_body'] = 'Error parsing JSON: $e';
+          }
+        } else {
+          results['health_check_body'] = response.body;
+        }
+      } catch (e) {
+        results['health_check_error'] = e.toString();
+      }
+    }
+    
+    return results;
+  }
 } 

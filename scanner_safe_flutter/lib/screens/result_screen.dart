@@ -6,12 +6,14 @@ class ResultScreen extends StatelessWidget {
   final bool isSafe;
   final String message;
   final String? originalQrCode;
+  final bool isOfflineResult;
 
   const ResultScreen({
     required this.url,
     required this.isSafe,
     required this.message,
     this.originalQrCode,
+    this.isOfflineResult = false,
     super.key,
   });
 
@@ -45,13 +47,47 @@ class ResultScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
-              Text(
-                isSafe ? 'Safe to Visit' : 'WARNING: Potentially Unsafe',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isSafe ? Colors.green : Colors.red,
-                ),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text(
+                    isSafe ? 'Safe to Visit' : 'WARNING: Potentially Unsafe',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: isSafe ? Colors.green : Colors.red,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (isOfflineResult)
+                    Tooltip(
+                      message: 'Offline analysis with limited accuracy',
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.offline_bolt, size: 16, color: Colors.grey.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              'OFFLINE',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
               Text(
@@ -62,6 +98,32 @@ class ResultScreen extends StatelessWidget {
                   color: Colors.black87,
                 ),
               ),
+              if (isOfflineResult) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber.shade800),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This analysis was performed offline with limited accuracy. For more reliable results, connect to the server.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
               const Text(
                 'URL',

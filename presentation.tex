@@ -1,0 +1,189 @@
+\documentclass{beamer}
+\usetheme{metropolis} % or madrid
+
+% Packages for professional look
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{lmodern}
+\usepackage{hyperref}
+
+% Title Information
+\title{URL Safety Scanner}
+\subtitle{A Project Presentation}
+\author{Your Name}
+\institute{Your Institution}
+\date{\today}
+
+\begin{document}
+
+% Title Slide
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Table of Contents
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% Introduction
+\section{Introduction}
+\begin{frame}{Introduction}
+  \begin{itemize}
+    \item The internet is rife with malicious URLs posing threats to users.
+    \item Manual verification of URL safety is impractical at scale.
+    \item \textbf{URL Safety Scanner} aims to automate the detection of unsafe URLs using modern techniques.
+    \item Motivation: Enhance user security and trust in web navigation.
+  \end{itemize}
+\end{frame}
+
+% Problem Statement
+\section{Problem Statement}
+\begin{frame}{Problem Statement}
+  \begin{itemize}
+    \item \textbf{Challenge:} Identifying and blocking malicious URLs in real-time.
+    \item Existing solutions may be slow, inaccurate, or require constant updates.
+    \item Need for a scalable, accurate, and automated approach to URL safety assessment.
+    \item Goal: Develop a system that efficiently classifies URLs as safe or unsafe.
+  \end{itemize}
+\end{frame}
+
+% Methodology
+\section{Methodology}
+\begin{frame}{Methodology}
+  \begin{itemize}
+    \item \textbf{Data Collection:} Gathered datasets of labeled URLs (benign and malicious).
+    \item \textbf{Feature Extraction:} Analyzed URL structure, lexical features, and metadata.
+    \item \textbf{Machine Learning:} Trained classification models (e.g., Random Forest, SVM).
+    \item \textbf{Evaluation:} Used metrics such as accuracy, precision, recall, and F1-score.
+    \item \textbf{Tools:} Python, Scikit-learn, Pandas, and Matplotlib.
+  \end{itemize}
+\end{frame}
+
+% Add: Feature Importance slide
+\begin{frame}{Feature Importance}
+    \begin{itemize}
+        \item The model evaluates the importance of each extracted feature.
+        \item Visualization helps understand which features contribute most to predictions.
+    \end{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{figures/feature_importance.png} % Placeholder
+        \caption{Feature importance as determined by the model.}
+    \end{figure}
+\end{frame}
+
+% Add: Training and Validation Accuracy slide
+\begin{frame}{Training and Validation Accuracy}
+    \begin{itemize}
+        \item Model performance is evaluated using training and validation accuracy curves.
+        \item These curves help detect overfitting or underfitting.
+    \end{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{figures/training_validation_accuracy.png} % Placeholder
+        \caption{Training and validation accuracy over epochs.}
+    \end{figure}
+\end{frame}
+
+% Implementation Details
+\section{Implementation Details}
+\begin{frame}{Implementation Details}
+  \begin{itemize}
+    \item \textbf{URL Scanning Pipeline:}
+      \begin{itemize}
+        \item Input: User-submitted URL.
+        \item Preprocessing: Normalization and feature extraction.
+        \item Classification: ML model predicts safety.
+        \item Output: Safety verdict and explanation.
+      \end{itemize}
+    \item \textbf{Key Components:}
+      \begin{itemize}
+        \item Feature engineering (length, tokens, special characters, etc.)
+        \item Model training and validation
+        \item User interface for result display
+      \end{itemize}
+    \item \textbf{Extensibility:} Modular design for easy integration of new models or features.
+  \end{itemize}
+\end{frame}
+
+% In Implementation Details, add a placeholder for the architecture/flowchart
+\begin{frame}{System Architecture}
+    \begin{itemize}
+        \item Overview of the URL scanning pipeline.
+        \item Shows data flow from input to prediction.
+    \end{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{figures/system_architecture.png} % Placeholder
+        \caption{System architecture and data flow.}
+    \end{figure}
+\end{frame}
+
+% Results
+\section{Results}
+\begin{frame}{Results}
+  \begin{itemize}
+    \item Achieved high accuracy in classifying URLs.
+    \item Robust performance across diverse datasets.
+    \item Example metrics:
+      \begin{itemize}
+        \item Accuracy: 96\%
+        \item Precision: 95\%
+        \item Recall: 94\%
+      \end{itemize}
+    \item \textbf{Visualization:}
+  \end{itemize}
+  \begin{center}
+    \includegraphics[width=0.7\linewidth]{results_chart_placeholder.png}
+    % Replace with actual chart image
+  \end{center}
+\end{frame}
+
+% In Results, add more graphics placeholders
+\begin{frame}{Results: ROC Curve}
+    \begin{itemize}
+        \item Receiver Operating Characteristic (ROC) curve illustrates model performance.
+    \end{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{figures/roc_curve.png} % Placeholder
+        \caption{ROC curve for model performance.}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Results: Confusion Matrix}
+    \begin{itemize}
+        \item Confusion matrix provides insight into classification errors.
+    \end{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{figures/confusion_matrix.png} % Placeholder
+        \caption{Confusion matrix of predictions.}
+    \end{figure}
+\end{frame}
+
+% Conclusion
+\section{Conclusion}
+\begin{frame}{Conclusion}
+  \begin{itemize}
+    \item Developed an effective and scalable URL safety scanner.
+    \item Demonstrated strong performance using machine learning techniques.
+    \item \textbf{Future Work:}
+      \begin{itemize}
+        \item Integrate real-time threat intelligence feeds.
+        \item Explore deep learning models for improved accuracy.
+        \item Deploy as a browser extension or web service.
+      \end{itemize}
+    \item \textbf{Thank you!}
+  \end{itemize}
+\end{frame}
+
+% Page numbers in footer
+\addtobeamertemplate{footline}{%
+  \begin{beamercolorbox}[wd=\paperwidth,ht=2.5ex,dp=1ex,leftskip=1em,rightskip=1em]{author in head/foot}
+    \hfill\insertframenumber{} / \inserttotalframenumber
+  \end{beamercolorbox}
+}{}
+
+\end{document}

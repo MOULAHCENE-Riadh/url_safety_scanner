@@ -5,6 +5,7 @@ class UrlSafetyResult {
   final String details;
   final DateTime timestamp;
   final String? finalUrl; // Store the final URL after redirects
+  final bool isOfflineResult; // Indicates if the result was generated offline
 
   UrlSafetyResult({
     required this.url,
@@ -13,6 +14,7 @@ class UrlSafetyResult {
     required this.details,
     required this.timestamp,
     this.finalUrl,
+    this.isOfflineResult = false, // Default to false (server result)
   });
 
   // For backward compatibility
@@ -27,6 +29,7 @@ class UrlSafetyResult {
       details: json['details'] as String,
       timestamp: DateTime.now(),
       finalUrl: json['final_url'] as String?,
+      isOfflineResult: false, // Server results are not offline
     );
   }
 } 

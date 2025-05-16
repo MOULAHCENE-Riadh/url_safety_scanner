@@ -128,6 +128,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             originalQrCode: code != url ? code : null,
             isSafe: result.safe,
             message: result.message,
+            isOfflineResult: result.isOfflineResult,
           ),
         ),
       );

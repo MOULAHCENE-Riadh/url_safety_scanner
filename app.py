@@ -4,17 +4,22 @@ import numpy as np
 import socket
 import platform
 import subprocess
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from urllib.parse import urlparse
 from joblib import load
 import logging
 import traceback
+import pickle
+import sklearn
+from sklearn import __version__ as sklearn_version
 
 # Configure logging - more detailed format
 logging.basicConfig(level=logging.DEBUG, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+logger.info(f"Starting with scikit-learn version: {sklearn_version}")
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)  # Enable CORS for all routes with more permissive settings
@@ -53,7 +58,37 @@ logger.info(f"Platform: {network_info['platform']}")
 current_dir = os.path.dirname(os.path.abspath(__file__))
 logger.info(f"Working directory: {current_dir}")
 
+# Custom model wrapper to handle version compatibility issues
+class ModelWrapper:
+    def __init__(self, model):
+        self.model = model
+    
+    def predict(self, X):
+        try:
+            return self.model.predict(X)
+        except Exception as e:
+            logger.error(f"Error with model.predict: {e}")
+            # Fallback based on probabilities
+            try:
+                probs = self.model.predict_proba(X)
+                return np.argmax(probs, axis=1)
+            except Exception as e2:
+                logger.error(f"Error with fallback prediction: {e2}")
+                # Emergency fallback - predict safe
+                return np.zeros(X.shape[0], dtype=int)
+    
+    def predict_proba(self, X):
+        try:
+            return self.model.predict_proba(X)
+        except Exception as e:
+            logger.error(f"Error with model.predict_proba: {e}")
+            # Emergency fallback - return [0.8, 0.2] for each input
+            return np.array([[0.8, 0.2]] * X.shape[0])
+
 # Load the model and scaler
+model = None
+scaler = None
+
 try:
     MODEL_PATH = os.path.join(current_dir, 'Malicious-URL-Detection', 'url_classifier_model.joblib')
     SCALER_PATH = os.path.join(current_dir, 'Malicious-URL-Detection', 'scaler.joblib')
@@ -61,9 +96,40 @@ try:
     logger.info(f"Loading model from: {MODEL_PATH}")
     logger.info(f"Loading scaler from: {SCALER_PATH}")
     
-    model = load(MODEL_PATH)
-    scaler = load(SCALER_PATH)
-    logger.info("Model and scaler loaded successfully")
+    # Check if files exist
+    if not os.path.exists(MODEL_PATH):
+        logger.error(f"Model file doesn't exist: {MODEL_PATH}")
+    if not os.path.exists(SCALER_PATH):
+        logger.error(f"Scaler file doesn't exist: {SCALER_PATH}")
+    
+    # Try multiple loading methods
+    try:
+        # Method 1: Standard joblib load
+        model = load(MODEL_PATH)
+        scaler = load(SCALER_PATH)
+        logger.info("Model and scaler loaded successfully with joblib")
+    except Exception as e:
+        logger.warning(f"Failed to load with joblib: {e}")
+        try:
+            # Method 2: Try with pickle
+            with open(MODEL_PATH, 'rb') as f:
+                model = pickle.load(f)
+            with open(SCALER_PATH, 'rb') as f:
+                scaler = pickle.load(f)
+            logger.info("Model and scaler loaded successfully with pickle")
+        except Exception as e2:
+            logger.error(f"Failed to load with pickle too: {e2}")
+            raise
+            
+    # Log model type
+    logger.info(f"Model type: {type(model)}")
+    logger.info(f"Scaler type: {type(scaler)}")
+    
+    # Wrap model for compatibility
+    if model is not None:
+        model = ModelWrapper(model)
+        logger.info("Model wrapped for version compatibility")
+    
 except Exception as e:
     logger.error(f"Error loading model or scaler: {e}")
     logger.error(traceback.format_exc())
@@ -102,11 +168,69 @@ def health_check():
         "request_headers": dict(request.headers)
     })
 
+# Add root route that redirects to health check
+@app.route('/', methods=['GET'])
+def index():
+    return redirect('/api/health')
+
 # Add a connectivity test endpoint
 @app.route('/api/ping', methods=['GET'])
 def ping():
     logger.info(f"Ping request received from: {request.remote_addr}")
     return jsonify({"message": "pong"})
+
+# Add a test route for debugging model loading and URL checking
+@app.route('/api/test', methods=['GET'])
+def test_model():
+    logger.info(f"Test request received from: {request.remote_addr}")
+    
+    test_url = request.args.get('url', 'https://google.com')
+    
+    # Detailed diagnostics
+    result = {
+        "model_loaded": model is not None,
+        "scaler_loaded": scaler is not None,
+        "sklearn_version": sklearn_version,
+        "model_type": str(type(model)) if model else "None",
+        "scaler_type": str(type(scaler)) if scaler else "None",
+        "test_url": test_url,
+    }
+    
+    # Try feature extraction
+    try:
+        features = extract_features(test_url)
+        result["feature_extraction"] = "success"
+        result["feature_count"] = len(features)
+        result["first_few_features"] = features[:5]
+    except Exception as e:
+        result["feature_extraction"] = f"error: {str(e)}"
+    
+    # Try using model if available
+    if model is not None and scaler is not None:
+        try:
+            features = extract_features(test_url)
+            features_scaled = scaler.transform([features])
+            prediction = model.predict(features_scaled)[0]
+            probabilities = model.predict_proba(features_scaled)[0].tolist()
+            
+            result["scaling"] = "success"
+            result["prediction"] = int(prediction)
+            result["probabilities"] = probabilities
+            result["is_safe"] = bool(prediction == 0)
+        except Exception as e:
+            result["model_prediction"] = f"error: {str(e)}"
+            result["traceback"] = traceback.format_exc()
+    
+    # Try fallback
+    try:
+        fallback_result = heuristic_url_check(test_url)
+        if hasattr(fallback_result, 'json'):
+            fallback_result = fallback_result.json
+        result["fallback_check"] = fallback_result
+    except Exception as e:
+        result["fallback_check"] = f"error: {str(e)}"
+    
+    return jsonify(result)
 
 def extract_features(url):
     try:
@@ -173,18 +297,35 @@ def predict_url_safety(url):
         logger.info(f"Extracted {len(features)} features from URL: {url}")
 
         # Scale features
-        features_scaled = scaler.transform([features])
+        try:
+            features_scaled = scaler.transform([features])
+            logger.info(f"Features scaled successfully")
+        except Exception as e:
+            logger.error(f"Error scaling features: {e}")
+            # Try alternative scaling method
+            features_scaled = np.array([features])
+            logger.info(f"Using unscaled features as fallback")
 
-        # Predict
-        prediction = model.predict(features_scaled)
-        probabilities = model.predict_proba(features_scaled)[0]
-        is_malicious = prediction[0] == 1  # Fixed: use == 1 instead of bool()
-        logger.info(f"Model prediction: {prediction[0]}, probabilities: safe={probabilities[0]:.2f}, unsafe={probabilities[1]:.2f}")
+        # Predict with better error handling
+        try:
+            prediction = model.predict(features_scaled)
+            probabilities = model.predict_proba(features_scaled)[0]
+            is_malicious = prediction[0] == 1
+            logger.info(f"Model prediction: {prediction[0]}, probabilities: safe={probabilities[0]:.2f}, unsafe={probabilities[1]:.2f}")
+        except Exception as e:
+            logger.error(f"Error during prediction: {e}")
+            logger.error(traceback.format_exc())
+            return {
+                "url": url,
+                "is_safe": False,
+                "confidence": 0.0,
+                "details": f"Error during prediction: {str(e)}"
+            }
 
         # Format response to match what Flutter expects
         return {
             "url": url,
-            "is_safe": not is_malicious,  # Changed "safe" to "is_safe"
+            "is_safe": not is_malicious,
             "confidence": float(probabilities[0] if not is_malicious else probabilities[1]),
             "details": "This URL appears to be safe." if not is_malicious else "This URL was flagged as potentially malicious. Proceed with caution."
         }
@@ -222,14 +363,21 @@ def check_url():
             # Fallback to basic heuristic checks if model is not available
             return heuristic_url_check(url)
 
+        # Add debugging for model prediction process
+        logger.info(f"Using model to predict safety for URL: {url}")
         result = predict_url_safety(url)
+        logger.info(f"Prediction result: {result}")
+        
         return jsonify(result)
 
     except Exception as e:
         logger.error(f"Error in check_url endpoint: {e}")
+        logger.error(traceback.format_exc())
         return jsonify({
-            "safe": False,
-            "message": f"Server error: {str(e)}"
+            "url": url,
+            "is_safe": False,
+            "confidence": 0.0,
+            "details": f"Server error: {str(e)}"
         }), 500
 
 def heuristic_url_check(url):
